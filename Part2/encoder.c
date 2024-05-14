@@ -62,24 +62,22 @@ int main(int argc, char* argv[]) {
     //Check if needs to read/write to/from another file
     FILE* infile = stdin; //default
     FILE* outfile = stdout; //default
-    
     for(int i = 1; i < argc; i++){
-        if(strcmp(argv[i], "-I") == 0 && i + 1 <= argc){ //checks if there is a filename as an argument as the next argument
-            infile = fopen(argv[i+1], "r");
-        
-            if(infile == NULL){
+        if(argv[i][0] == '-' && argv[i][1] == 'I'){
+            infile = fopen(&argv[i][2], "r");
+
+             if(infile == NULL){
                 fprintf(stderr, "Error: Unable to open input file \n");
                 return 1;
             }
-        } else if (strcmp(argv[i], "-O") == 0 && i + 1 <= argc){ //checks if there is a filename as an argument as the next argument
-            outfile = fopen(argv[i + 1], "w");
+        } else if(argv[i][0] == '-' && argv[i][1] == 'O'){ //checks if there is a filename as an argument as the next argument
+            outfile = fopen(&argv[i][2], "w");
             if(outfile == NULL){
                 fprintf(stderr, "Error: Unable to open output file \n");
                 return 1;
             }
         }
-
-    } 
+    }
     
     int c;
     if(encodeArgument == 1){
