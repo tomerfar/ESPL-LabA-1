@@ -47,7 +47,7 @@ void execute(cmdLine *pCmdLines, int debug)
     else{ //creates a child process that runs conccurently with the parent process.
         if(debug){
             fprintf(stderr, "PID: %d\n", child_pid);
-            fprintf(stderr,"Executing Command: \n", pCmdLines->arguments[0]);
+            fprintf(stderr,"Executing Command:%s\n", pCmdLines->arguments[0]);
         }
 
         if(pCmdLines->blocking){ //blocking is 1 
@@ -103,6 +103,7 @@ int main(int argc, char **argv)
             else if(chdir(parseCmd->arguments[1]) == -1){ /* checks if the next argument is a name of an actual file */
                 fprintf(stderr, "cd: %s: No such file or directory \n", parseCmd->arguments[1]);
             }
+            freeCmdLines(parseCmd);
             continue; /* cd command is handled internally by the shell and doesn't require creating a new process or executing any other command*/
         }
         else if(strcmp(parseCmd->arguments[0], "alarm") == 0){ //wakes up a sleeping process
@@ -113,6 +114,7 @@ int main(int argc, char **argv)
                 int pid = atoi(parseCmd->arguments[1]);
                 handleAlarm(pid);
             }
+            freeCmdLines(parseCmd);
             continue;
         }
         else if(strcmp(parseCmd->arguments[0], "blast") == 0){ //terminates a running/sleeping process
@@ -123,6 +125,7 @@ int main(int argc, char **argv)
                 int pid = atoi(parseCmd->arguments[1]);
                 handleBlast(pid);
             }
+            freeCmdLines(parseCmd);
             continue;
         }
 
