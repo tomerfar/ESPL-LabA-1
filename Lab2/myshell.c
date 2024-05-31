@@ -7,22 +7,25 @@
 #include "LineParser.c"
 #include <limits.h> // For PATH_MAX
 
+#define PATH_MAX 4096
+#define MY_MAX_INPUT 2048
+
 void execute(cmdLine *pCmdLines)
 {
-   int pid;
-   if((pid = fork()) == -1){ 
+   pid_t child_pid; /* child process id*/
+   if((child_pid = fork()) == -1){ 
     perror("fork() error");
     exit(1);
    }
-   else if(pid == 0){
-    if(execv(pCmdLines->arguments[0], pCmdLines->arguments) == -1){
-      perror("execv() error");
+   else if(child_pid == 0){
+    if(execvp(pCmdLines->arguments[0], pCmdLines->arguments) == -1){ /* execv needs to recieve the full path name, while execvp needs only to recieve the filename, and then it searches this name inside the cd*/
+      perror("execvp() error");
       exit(1);  
     }
    }
-    else{
-        if(!pCmdLines->blocking){
-            waitpid(pid, NULL, 0);
+    else{ //creates a child process that runs conccurently with the parent process.
+        if(pCmdLines->blocking){
+            waitpid(child_pid, NULL, 0);
         }
 
 
@@ -32,12 +35,13 @@ void execute(cmdLine *pCmdLines)
 
 int main(int argc, char **argv)
 {
-    char input[2048]; /* Needs to be PATH_MAX*/
+    char cwd[PATH_MAX];
+    char input[MY_MAX_INPUT];
     cmdLine* parseCmd;
     while(1){ /* infinite loop*/
-        char cwd[2048];
+
         if(getcwd(cwd, sizeof(cwd)) != NULL){
-            printf("%s> ", cwd);
+            printf("%s\n ", cwd);
         }
         else{
             perror("getcwd() error");
@@ -47,15 +51,18 @@ int main(int argc, char **argv)
             perror("Error in reading the input");
             return 1;
         }
+        if (strcmp(input, "quit\n") == 0) {
+        printf("Exiting myshell.\n");
+        break;
+        }
+
         parseCmd = parseCmdLines(input);
         if(parseCmd == NULL){
             perror("Error in parsing command");
             continue;
         }
-        else{
-            execute(parseCmd);
-            freeCmdLines(parseCmd);
-        }
+        execute(parseCmd);
+        freeCmdLines(parseCmd);
     }
 
     return 0;
