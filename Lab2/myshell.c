@@ -98,15 +98,15 @@ int main(int argc, char **argv)
             debug = 1;
         }
     }
-    while(1){ /* infinite loop*/
-
-        if(getcwd(cwd, sizeof(cwd)) != NULL){
+     if(getcwd(cwd, sizeof(cwd)) != NULL){
             printf("%s\n ", cwd);
         }
         else{
             perror("getcwd() error");
             return 1;
         }
+    while(1){ /* infinite loop*/
+
         if(fgets(input, sizeof(input), stdin) == NULL){
             perror("Error in reading the input");
             return 1;
