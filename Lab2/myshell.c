@@ -4,9 +4,12 @@
 #include <ctype.h>
 #include <unistd.h> // For getcwd
 #include <sys/wait.h>
-#include "LineParser.c"
+#include <sys/stat.h>
+#include "LineParser.h"
 #include <signal.h>
 #include <limits.h> // For PATH_MAX
+#include <fcntl.h>
+#include <linux/stat.h>
 
 #define PATH_MAX 4096
 #define MY_MAX_INPUT 2048
@@ -39,12 +42,37 @@ void execute(cmdLine *pCmdLines, int debug)
     exit(1);
    }
    else if(child_pid == 0){
+    if(pCmdLines->inputRedirect != NULL){
+        int fd = open(pCmdLines->inputRedirect, O_RDONLY);
+        if(fd == -1){
+            perror("open() error");
+            _exit(1);
+        }
+            if(dup2(fd,STDIN_FILENO) == -1){
+            perror("dup2() error");
+            _exit(1);
+        }
+            close(fd);
+    }
+    if(pCmdLines->outputRedirect != NULL){
+        
+        int fd = open(pCmdLines->outputRedirect, O_WRONLY | O_CREAT | O_TRUNC ,S_IRUSR | S_IWUSR);
+        if(fd == -1){
+            perror("open() error");
+            _exit(1);
+        }
+        if(dup2(fd,STDOUT_FILENO) == -1){
+            perror("dup2() error");
+            _exit(1);
+        }
+        close(fd);
+    }
     if(execvp(pCmdLines->arguments[0], pCmdLines->arguments) == -1){ /* execv needs to recieve the full path name, while execvp needs only to recieve the filename, and then it searches this name inside the cd*/
       perror("execvp() error");
       _exit(1);  
     }
    }
-    else{ //creates a child process that runs conccurently with the parent process.
+   else{ //creates a child process that runs conccurently with the parent process.
         if(debug){
             fprintf(stderr, "PID: %d\n", child_pid);
             fprintf(stderr,"Executing Command:%s\n", pCmdLines->arguments[0]);
@@ -53,8 +81,6 @@ void execute(cmdLine *pCmdLines, int debug)
         if(pCmdLines->blocking){ //blocking is 1 
             waitpid(child_pid, NULL, 0);
         }
-
-
     }
 }
 
