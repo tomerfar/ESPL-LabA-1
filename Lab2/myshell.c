@@ -97,6 +97,7 @@ int main(int argc, char **argv)
         }
         /* checks the type of command the shell recieved and reacts accordingly */
         if(strcmp(parseCmd->arguments[0], "cd") == 0){ //change directory
+            //printf("argCount: %d\n", parseCmd->argCount);
             if(parseCmd->argCount < 2){
                 fprintf(stderr, "Error: file or directory name is missing\n");
             }
