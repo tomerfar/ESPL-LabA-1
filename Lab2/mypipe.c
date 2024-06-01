@@ -16,6 +16,7 @@ int main(int argc, char **argv)
     int p[2];
     pipe(p); //creates a one way communication channel. in p[1] we write, and it sends to p[1].
     pid_t pid = fork();
+    
     if(pid > 0){
         printf("parent id: %d\n",pid);
         close(p[0]);
