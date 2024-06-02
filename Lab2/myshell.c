@@ -5,13 +5,15 @@
 #include <unistd.h> // For getcwd
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include "LineParser.h"
 #include <signal.h>
 #include <limits.h> // For PATH_MAX
 #include <fcntl.h>
 #include <linux/stat.h>
+#include <linux/limits.h>
 
-#define PATH_MAX 4096
+//#define PATH_MAX 4096
 #define MY_MAX_INPUT 2048
 
 void handleAlarm(int process_id){
@@ -37,7 +39,7 @@ void handleAlarm(int process_id){
 void execute(cmdLine *pCmdLines, int debug)
 {
    pid_t child_pid; /* child process id*/
-   if((child_pid = fork()) == -1){ 
+   if((child_pid = fork()) == -1){ //couldn't fork
     perror("fork() error");
     exit(1);
    }
@@ -99,7 +101,7 @@ int main(int argc, char **argv)
         }
     }
      if(getcwd(cwd, sizeof(cwd)) != NULL){
-            printf("%s\n ", cwd);
+            printf("%s\n ", cwd); //check in the frontal lab may need to go inside the while loop
         }
         else{
             perror("getcwd() error");
@@ -157,7 +159,7 @@ int main(int argc, char **argv)
         }
 
 
-        execute(parseCmd, debug);
+        execute(parseCmd, debug); //if the commands is neither of cd alarm or blast, it handles different commands that the user can ask for
         freeCmdLines(parseCmd);
     }
 
