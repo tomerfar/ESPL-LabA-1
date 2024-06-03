@@ -8,10 +8,9 @@
 #include <sys/types.h>
 #include "LineParser.h"
 #include <signal.h>
-#include <limits.h> // For PATH_MAX
 #include <fcntl.h>
 #include <linux/stat.h>
-#include <linux/limits.h>
+#include <linux/limits.h> // For PATH_MAX
 
 //#define PATH_MAX 4096
 #define MY_MAX_INPUT 2048
@@ -100,14 +99,15 @@ int main(int argc, char **argv)
             debug = 1;
         }
     }
-     if(getcwd(cwd, sizeof(cwd)) != NULL){
+     
+    while(1){ /* infinite loop*/
+        if(getcwd(cwd, sizeof(cwd)) != NULL){
             printf("%s\n ", cwd); //check in the frontal lab may need to go inside the while loop
         }
         else{
             perror("getcwd() error");
             return 1;
         }
-    while(1){ /* infinite loop*/
 
         if(fgets(input, sizeof(input), stdin) == NULL){
             perror("Error in reading the input");
