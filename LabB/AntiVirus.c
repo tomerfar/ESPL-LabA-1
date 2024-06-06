@@ -16,7 +16,7 @@ struct link {
     virus *vir;
 };
 
-char sigFile[256] = "signatures.L";
+char sigFile[256] = "signatures-L";
 char suspectetFileName[256] = "";
 char buffer[1024];
 bool isBigEndian = false;
@@ -80,12 +80,12 @@ void SetSigFileName(){
 
 virus* readVirus(FILE* file){
 
-    virus* vir = malloc(sizeof(virus)); // remember to free this memory afterwards
+    virus* vir = (virus*)malloc(sizeof(virus)); // remember to free this memory afterwards
     if(vir == NULL){
         fprintf(stderr,"Error: could not allocate memory for virus structure.\n");
         return NULL;
     }
-    if(fread(vir, 18, 1 , file) != 1){ /* when read data from file into a struct,
+    if(fread(vir, 1, 18 , file) != 18){ /* when read data from file into a struct,
      the data is stored in the fields of the struct in the order in which is read from the file.*/
         fprintf(stderr, "Error in reading virus length and name\n");
         free(vir);
@@ -102,7 +102,7 @@ virus* readVirus(FILE* file){
         free(vir);
         return NULL;
     }
-    if(fread(vir->sig,vir->SigSize,1,file) != 1){ 
+    if(fread(vir->sig,1,vir->SigSize,file) != vir->SigSize){ 
         fprintf(stderr, "Error in reading virus signature bytes\n");
         free(vir->sig);
         free(vir);
@@ -178,6 +178,7 @@ int main(int argc, char **argv)
 
         char input[10];
         int option;
+        //bool isLoaded = false;; // flag to check whether we already loaded the signatures.
         if(fgets(input, sizeof(input), stdin) == NULL){ //EOF
             break;
         }
@@ -194,7 +195,7 @@ int main(int argc, char **argv)
                 FILE* file = fopen(sigFile, "rb");
                 if(file == NULL){
                     fprintf(stderr,"Error: could not open file %s\n", sigFile);
-                    break;;
+                    return 1;
                 }
                 char magic_buffer[5]; // 4 bytes for magic number and 1 for null terminator
                 if(fread(magic_buffer, 1, 4 , file) != 4){
@@ -215,13 +216,23 @@ int main(int argc, char **argv)
                 //     isBigEndian = true;
                 // }
                 virus* vir;
-                while((vir = readVirus(file)) != NULL){
-                    virus_list = list_append(virus_list,vir);
+                while(!feof(file)){
+                    vir = readVirus(file);
+                    if(vir != NULL){
+                        virus_list = list_append(virus_list,vir);
+                    }
                 }
+                //isLoaded = true;
                 fclose(file);
                 break; 
             }
             case 2:{
+                // if(isLoaded){
+                //     list_print(virus_list, stdout);
+                // }
+                // else{
+                //     fprintf(stderr,"Error: viruses aren't loaded.\n");
+                // }
                 list_print(virus_list, stdout);
                 break;
             }

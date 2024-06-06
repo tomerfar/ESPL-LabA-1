@@ -12,11 +12,11 @@ hexaPrint: hexaPrint.o
 hexaPrint.o: hexaPrint.c
 	gcc -g -Wall -m32 -c -o hexaPrint.o hexaPrint.c
 
-virus: VirusDetector.o
-	gcc -g -m32 -Wall -o virus VirusDetector.o
+virus: AntiVirus.o
+	gcc -g -m32 -Wall -o virus AntiVirus.o
 
-VirusDetector.o: VirusDetector.c
-	gcc -g -Wall -m32 -c -o VirusDetector.o VirusDetector.c
+AntiVirus.o: AntiVirus.c
+	gcc -g -Wall -m32 -c -o AntiVirus.o AntiVirus.c
 
 .PHONY: clean
 
