@@ -60,6 +60,8 @@ void list_free(link *virus_list){
     link *current = virus_list;
     while(current != NULL){
         link *next = current->nextVirus;
+        free(current->vir->sig);
+        free(current->vir);
         free(current);
         current = next;
     }
@@ -90,9 +92,9 @@ virus* readVirus(FILE* file){
         return NULL;
     }
    
-    if(isBigEndian){
-        vir->SigSize = (vir->SigSize >> 8) | (vir->SigSize << 8);
-    }
+    // if(isBigEndian){
+    //     vir->SigSize = (vir->SigSize >> 8) | (vir->SigSize << 8);
+    // }
 
     vir->sig = (unsigned char*)malloc(vir->SigSize);
     if(vir->sig == NULL){
@@ -126,8 +128,19 @@ void printVirus(virus* virus){ //notice we changed here the signature to be a be
     printf("\n");
 }
 
-void DetectViruses() {
-    printf("DetectViruses function not implemented\n");
+void detect_virus(char *buffer, unsigned int size, link *virus_list) {
+    link *current = virus_list;
+    while (current != NULL) {
+        for (unsigned int i = 0; i < size - current->vir->SigSize; i++) {
+            if (memcmp(buffer + i, current->vir->sig, current->vir->SigSize) == 0) {
+                printf("Virus found!\n");
+                printf("Starting byte that virus detected: %u\n", i);
+                printf("Virus name: %s\n", current->vir->virusName);
+                printf("Virus signature size: %u\n", current->vir->SigSize);
+            }
+        }
+        current = current->nextVirus;
+    }
 }
 
 void FixFile() {
@@ -195,12 +208,12 @@ int main(int argc, char **argv)
                     fclose(file);
                     break;
                 }
-                else if(memcmp(magic_buffer, "VIRL", 4) == 0){
-                    isBigEndian = false;
-                }
-                else if(memcmp(magic_buffer, "VIRB", 4) == 0){
-                    isBigEndian = true;
-                }
+                // else if(memcmp(magic_buffer, "VIRL", 4) == 0){
+                //     isBigEndian = false;
+                // }
+                // else if(memcmp(magic_buffer, "VIRB", 4) == 0){
+                //     isBigEndian = true;
+                // }
                 virus* vir;
                 while((vir = readVirus(file)) != NULL){
                     virus_list = list_append(virus_list,vir);
@@ -212,6 +225,32 @@ int main(int argc, char **argv)
                 list_print(virus_list, stdout);
                 break;
             }
+            case 3:{
+                FILE* file = fopen(suspectetFileName, "rb");
+                if(file == NULL){
+                        fprintf(stderr,"Error: could not open file %s\n", suspectetFileName);
+                        break;;
+                }
+                char buffer[10000];
+                unsigned int size = fread(buffer,1, sizeof(buffer), file);
+                fclose(file);
+                if(size == 0){
+                    fprintf(stderr, "Error: failed to read file.\n");
+                    break;
+                }
+
+                detect_virus(buffer, size, virus_list);
+                break;
+            }
+            case 4:{
+                FixFile();
+            }
+            case 5:{
+                Quit();
+            }
+            default:
+            printf("Invalid option\n");
+            break;
 
 
         }
