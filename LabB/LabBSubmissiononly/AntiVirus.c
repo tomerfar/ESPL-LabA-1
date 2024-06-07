@@ -18,16 +18,17 @@ struct link {
 
 link* virus_list = NULL;
 char sigFile[256] = "signatures-L";
-char suspectetFileName[256] = "";
+char suspectedFileName[256] = "";
 char buffer[1024];
-bool isBigEndian = false;
+bool isBigEndian = false; //Assuming we read in little endian
 
 
 
 //Functions declarations
 void SetSigFileName();
 virus* readVirus(FILE* file);
-void printVirus(virus* v);
+void printVirus(virus *v);
+void fixfile();
 void list_print(link* virus_list, FILE* stream);
 link* list_append(link* virus_list, virus* data);
 void list_free(link* virus_list);
@@ -108,7 +109,7 @@ virus* readVirus(FILE* file){
         free(vir);
         return NULL; 
     }
-    printf("Success\n");
+
     return vir;
 }
 
@@ -131,7 +132,7 @@ void printVirus(virus* virus){ //notice we changed here the signature to be a be
 void detect_virus(char *buffer, unsigned int size, link *virus_list) {
     link *current = virus_list;
     while (current != NULL) {
-        for (unsigned int i = 0; i < size - current->vir->SigSize; i++) {
+        for (unsigned int i = 0; i < size - current->vir->SigSize + 1; i++) {
             if (memcmp(buffer + i, current->vir->sig, current->vir->SigSize) == 0) {
                 printf("Virus found!\n");
                 printf("Starting byte that virus detected: %u\n", i);
@@ -143,9 +144,53 @@ void detect_virus(char *buffer, unsigned int size, link *virus_list) {
     }
 }
 
-void FixFile() {
-    printf("FixFile function not implemented\n");
+void neutralize_virus(char *filename , int signatureOffset){
+    FILE* file = fopen(filename, "r+b");
+    if(file == NULL){
+        fprintf(stderr, "Error: could not open file %s\n", filename);
+        return;
+    }
+    if(fseek(file, signatureOffset, SEEK_SET) != 0){
+        fprintf(stderr, "Error: problem in seeking to position %d\n",signatureOffset);
+        fclose(file);
+        return;
+    }
+    char ret_instruction = 0xC3; //RET instruction
+    if(fwrite(&ret_instruction,1,1,file) != 1){
+        fprintf(stderr, "Error: couldn't write RET instruction.\n");
+    }
+    fclose(file);
+
 }
+
+void fixFile(){
+    FILE *file = fopen(suspectedFileName ,"r+b"); // open file in binary mode
+    if (file == NULL){
+        fprintf(stderr, "Error: couldn't open file %s\n", suspectedFileName);
+        fclose(file);
+        return;
+    }
+
+    char buffer[10000];
+    unsigned int size = fread(buffer, 1, sizeof(buffer), file);
+    fclose(file);
+
+    link *current = virus_list;
+    while (current != NULL)
+    {
+        virus *vir = current->vir;
+        for(unsigned int i = 0; i < size - vir->SigSize + 1; i++){
+            if (memcmp(buffer + i, vir->sig, vir->SigSize) == 0) {
+                printf("Neutralizing virus at position: %u\n", i);
+                neutralize_virus(suspectedFileName, i);
+            }
+        }
+        current = current->nextVirus;
+    }
+    
+}
+
+
 
 int main(int argc, char **argv)
 {
@@ -158,6 +203,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "Error: could not open file %s", argv[1]);
         exit(1);
     }
+    strncpy(suspectedFileName, argv[1], sizeof(suspectedFileName) - 1);
+    suspectedFileName[sizeof(suspectedFileName) - 1] = '\0';
     bool isLoaded = false;; // flag to check whether we already loaded the signatures.
     while(1){ // infinite loop
         printf("Menu:\n");
@@ -201,12 +248,12 @@ int main(int argc, char **argv)
                     fclose(file);
                     break;
                 }
-                // else if(memcmp(magic_buffer, "VIRL", 4) == 0){
-                //     isBigEndian = false;
-                // }
-                // else if(memcmp(magic_buffer, "VIRB", 4) == 0){
-                //     isBigEndian = true;
-                // }
+                else if(memcmp(magic_buffer, "VIRL", 4) == 0){
+                    isBigEndian = false;
+                }
+                else if(memcmp(magic_buffer, "VIRB", 4) == 0){
+                    isBigEndian = true;
+                }
                 virus* vir;
                 while((vir = readVirus(file)) != NULL){
                     virus_list = list_append(virus_list, vir);
@@ -225,9 +272,9 @@ int main(int argc, char **argv)
                 break;
             }
             case 3:{
-                FILE* file = fopen(suspectetFileName, "rb");
+                FILE* file = fopen(suspectedFileName, "rb");
                 if(file == NULL){
-                        fprintf(stderr,"Error: could not open file %s\n", suspectetFileName);
+                        fprintf(stderr,"Error: could not open file %s\n", suspectedFileName);
                         break;;
                 }
                 char buffer[10000];
@@ -242,7 +289,8 @@ int main(int argc, char **argv)
                 break;
             }
             case 4:{
-                FixFile();
+                fixFile(virus_list);
+                break;
             }
             case 5:{
                 list_free(virus_list);
