@@ -16,11 +16,12 @@ struct link {
     virus *vir;
 };
 
+link* virus_list = NULL;
 char sigFile[256] = "signatures-L";
 char suspectetFileName[256] = "";
 char buffer[1024];
 bool isBigEndian = false;
-link* virus_list = NULL;
+
 
 
 //Functions declarations
@@ -80,14 +81,13 @@ void SetSigFileName(){
 
 virus* readVirus(FILE* file){
 
-    virus* vir = (virus*)malloc(sizeof(virus)); // remember to free this memory afterwards
+    virus* vir = (virus*)calloc(1, sizeof(virus)); // remember to free this memory afterwards
     if(vir == NULL){
         fprintf(stderr,"Error: could not allocate memory for virus structure.\n");
         return NULL;
     }
     if(fread(vir, 1, 18 , file) != 18){ /* when read data from file into a struct,
      the data is stored in the fields of the struct in the order in which is read from the file.*/
-        fprintf(stderr, "Error in reading virus length and name\n");
         free(vir);
         return NULL;
     }
@@ -96,7 +96,7 @@ virus* readVirus(FILE* file){
     //     vir->SigSize = (vir->SigSize >> 8) | (vir->SigSize << 8);
     // }
 
-    vir->sig = (unsigned char*)malloc(vir->SigSize);
+    vir->sig = (unsigned char*)calloc(vir->SigSize, sizeof(unsigned char));
     if(vir->sig == NULL){
         fprintf(stderr, "Error: could not allocate memory for virus signature.\n");
         free(vir);
@@ -108,7 +108,7 @@ virus* readVirus(FILE* file){
         free(vir);
         return NULL; 
     }
-
+    printf("Success\n");
     return vir;
 }
 
@@ -147,13 +147,6 @@ void FixFile() {
     printf("FixFile function not implemented\n");
 }
 
-void Quit() {
-    printf("Quitting the program\n");
-    list_free(virus_list);
-    exit(0);
-}
-
-
 int main(int argc, char **argv)
 {
      if(argc < 2){
@@ -165,7 +158,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "Error: could not open file %s", argv[1]);
         exit(1);
     }
-   
+    bool isLoaded = false;; // flag to check whether we already loaded the signatures.
     while(1){ // infinite loop
         printf("Menu:\n");
         printf("0) Set signatures file name\n");
@@ -174,11 +167,10 @@ int main(int argc, char **argv)
         printf("3) Detect viruses\n");
         printf("4) Fix file\n");
         printf("5) Quit\n");
-        printf("Please select a function:\n");   
+        printf("Please select a function:\n");
 
         char input[10];
         int option;
-        //bool isLoaded = false;; // flag to check whether we already loaded the signatures.
         if(fgets(input, sizeof(input), stdin) == NULL){ //EOF
             break;
         }
@@ -197,13 +189,13 @@ int main(int argc, char **argv)
                     fprintf(stderr,"Error: could not open file %s\n", sigFile);
                     return 1;
                 }
-                char magic_buffer[5]; // 4 bytes for magic number and 1 for null terminator
+                char magic_buffer[4]; // 4 bytes for magic number and 1 for null terminator
                 if(fread(magic_buffer, 1, 4 , file) != 4){
                     fprintf(stderr, "Error: could not read magic number from file %s", sigFile);
                     fclose(file);
                     break;
                 }
-                magic_buffer[4] = '\0';
+
                 if (memcmp(magic_buffer, "VIRL", 4) != 0 && memcmp(magic_buffer, "VIRB", 4) != 0) {
                     fprintf(stderr, "Error: incorrect magic number in file %s", sigFile);
                     fclose(file);
@@ -216,24 +208,20 @@ int main(int argc, char **argv)
                 //     isBigEndian = true;
                 // }
                 virus* vir;
-                while(!feof(file)){
-                    vir = readVirus(file);
-                    if(vir != NULL){
-                        virus_list = list_append(virus_list,vir);
-                    }
+                while((vir = readVirus(file)) != NULL){
+                    virus_list = list_append(virus_list, vir);
                 }
-                //isLoaded = true;
+                isLoaded = true;
                 fclose(file);
                 break; 
             }
             case 2:{
-                // if(isLoaded){
-                //     list_print(virus_list, stdout);
-                // }
-                // else{
-                //     fprintf(stderr,"Error: viruses aren't loaded.\n");
-                // }
-                list_print(virus_list, stdout);
+                if(isLoaded){
+                    list_print(virus_list, stdout);
+                }
+                else{
+                    fprintf(stderr,"Error: viruses aren't loaded.\n");
+                }
                 break;
             }
             case 3:{
@@ -257,7 +245,8 @@ int main(int argc, char **argv)
                 FixFile();
             }
             case 5:{
-                Quit();
+                list_free(virus_list);
+                exit(0);
             }
             default:
             printf("Invalid option\n");
