@@ -93,9 +93,9 @@ virus* readVirus(FILE* file){
         return NULL;
     }
    
-    // if(isBigEndian){
-    //     vir->SigSize = (vir->SigSize >> 8) | (vir->SigSize << 8);
-    // }
+    if(isBigEndian){
+        vir->SigSize = (vir->SigSize >> 8) | (vir->SigSize << 8);
+    }
 
     vir->sig = (unsigned char*)calloc(vir->SigSize, sizeof(unsigned char));
     if(vir->sig == NULL){
@@ -226,17 +226,17 @@ int main(int argc, char **argv)
         }
 
         switch(option){
-            case 0: {
+            case 0: { //Changing the name of the file
                 SetSigFileName();
                 break;
             }
-            case 1:{
+            case 1:{ //adding all viruses signatures to the link structure
                 FILE* file = fopen(sigFile, "rb");
                 if(file == NULL){
                     fprintf(stderr,"Error: could not open file %s\n", sigFile);
                     return 1;
                 }
-                char magic_buffer[4]; // 4 bytes for magic number and 1 for null terminator
+                char magic_buffer[4]; // 4 bytes for magic number
                 if(fread(magic_buffer, 1, 4 , file) != 4){
                     fprintf(stderr, "Error: could not read magic number from file %s", sigFile);
                     fclose(file);
@@ -262,7 +262,7 @@ int main(int argc, char **argv)
                 fclose(file);
                 break; 
             }
-            case 2:{
+            case 2:{ //prints all the signatures only of we loaded them to the struct before
                 if(isLoaded){
                     list_print(virus_list, stdout);
                 }
@@ -294,6 +294,7 @@ int main(int argc, char **argv)
             }
             case 5:{
                 list_free(virus_list);
+                fclose(file);
                 exit(0);
             }
             default:
@@ -304,7 +305,6 @@ int main(int argc, char **argv)
         }
    
     }
-
     return 0;
 
 
