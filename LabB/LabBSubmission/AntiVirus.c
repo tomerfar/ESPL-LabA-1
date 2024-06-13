@@ -70,11 +70,10 @@ void list_free(link *virus_list){
 }
 //Linked List methods
 
-void SetSigFileName(){
+void SetSigFileName(char* filename, size_t size) {
     printf("Enter a new signature file name: ");
-    if (fgets(buffer, sizeof(buffer), stdin) != NULL) {
-        buffer[strcspn(buffer, "\n")] = 0;
-        strcpy(sigFile, buffer);
+    if (fgets(filename, size, stdin) != NULL) {
+        filename[strcspn(filename, "\n")] = 0;
     } else {
         printf("Error reading input. Please try again.\n");
     }
@@ -147,7 +146,7 @@ void detect_virus(char *buffer, unsigned int size, link *virus_list) {
 void neutralize_virus(char *filename , int signatureOffset){
     FILE* file = fopen(filename, "r+b");
     if(file == NULL){
-        fprintf(stderr, "Error: could not open file %s\n", filename);
+        perror("Failed to open suspected file");
         return;
     }
     if(fseek(file, signatureOffset, SEEK_SET) != 0){
@@ -160,20 +159,26 @@ void neutralize_virus(char *filename , int signatureOffset){
         fprintf(stderr, "Error: couldn't write RET instruction.\n");
     }
     fclose(file);
-
 }
 
-void fixFile(){
-    FILE *file = fopen(suspectedFileName ,"r+b"); // open file in binary mode
+void fixFile(link *virus_list){
+    char input[256];
+    printf("Enter the name of the infected file: ");
+    if (fgets(input, sizeof(input), stdin) == NULL) {
+        printf("Failed to read input\n");
+        return;
+    }
+    input[strcspn(input, "\n")] = '\0'; // Remove the trailing newline character
+
+    FILE *file = fopen(input ,"r+b"); // open file in binary mode
     if (file == NULL){
-        fprintf(stderr, "Error: couldn't open file %s\n", suspectedFileName);
-        fclose(file);
+        perror("Failed to open suspected file");
         return;
     }
 
     char buffer[10000];
     unsigned int size = fread(buffer, 1, sizeof(buffer), file);
-    fclose(file);
+    rewind(file);  // Move the file pointer back to the beginning
 
     link *current = virus_list;
     while (current != NULL)
@@ -181,31 +186,33 @@ void fixFile(){
         virus *vir = current->vir;
         for(unsigned int i = 0; i < size - vir->SigSize + 1; i++){
             if (memcmp(buffer + i, vir->sig, vir->SigSize) == 0) {
-                printf("Neutralizing virus at position: %u\n", i);
-                neutralize_virus(suspectedFileName, i);
+                printf("Neutralizing virus: %s at byte location: %u\n", vir->virusName, i);
+                neutralize_virus(input, i);
             }
         }
         current = current->nextVirus;
     }
-    
+    fclose(file);
 }
 
 
 
 int main(int argc, char **argv)
 {
-     if(argc < 2){
-        fprintf(stderr, "Error: no file name provided.\n");
-        exit(1);
-    }
-    FILE *file = fopen(argv[1], "rb"); // opening file in reading bytes mode.
-    if(file == NULL){
-        fprintf(stderr, "Error: could not open file %s", argv[1]);
-        exit(1);
-    }
-    strncpy(suspectedFileName, argv[1], sizeof(suspectedFileName) - 1);
-    suspectedFileName[sizeof(suspectedFileName) - 1] = '\0';
-    bool isLoaded = false;; // flag to check whether we already loaded the signatures.
+    //  if(argc < 2){
+    //     fprintf(stderr, "Error: no file name provided.\n");
+    //     exit(1);
+    // }
+    // FILE *file = fopen(argv[1], "rb"); // opening file in reading bytes mode.
+    // if(file == NULL){
+    //     fprintf(stderr, "Error: could not open file %s", argv[1]);
+    //     exit(1);
+    // }
+    // strncpy(suspectedFileName, argv[1], sizeof(suspectedFileName) - 1);
+    // suspectedFileName[sizeof(suspectedFileName) - 1] = '\0';
+    bool isLoaded = false; // flag to check whether we already loaded the signatures.
+    char input[256];
+    int option;
     while(1){ // infinite loop
         printf("Menu:\n");
         printf("0) Set signatures file name\n");
@@ -216,8 +223,7 @@ int main(int argc, char **argv)
         printf("5) Quit\n");
         printf("Please select a function:\n");
 
-        char input[10];
-        int option;
+        
         if(fgets(input, sizeof(input), stdin) == NULL){ //EOF
             break;
         }
@@ -227,14 +233,14 @@ int main(int argc, char **argv)
 
         switch(option){
             case 0: { //Changing the name of the file
-                SetSigFileName();
+                SetSigFileName(sigFile, sizeof(sigFile));
                 break;
             }
             case 1:{ //adding all viruses signatures to the link structure
                 FILE* file = fopen(sigFile, "rb");
                 if(file == NULL){
-                    fprintf(stderr,"Error: could not open file %s\n", sigFile);
-                    return 1;
+                    perror("Failed to open signature file\n");
+                    break;;
                 }
                 char magic_buffer[4]; // 4 bytes for magic number
                 if(fread(magic_buffer, 1, 4 , file) != 4){
@@ -254,6 +260,9 @@ int main(int argc, char **argv)
                 else if(memcmp(magic_buffer, "VIRB", 4) == 0){
                     isBigEndian = true;
                 }
+
+                list_free(virus_list); //Clean old signatures
+                virus_list = NULL; 
                 virus* vir;
                 while((vir = readVirus(file)) != NULL){
                     virus_list = list_append(virus_list, vir);
@@ -272,14 +281,21 @@ int main(int argc, char **argv)
                 break;
             }
             case 3:{
-                FILE* file = fopen(suspectedFileName, "rb");
-                if(file == NULL){
-                        fprintf(stderr,"Error: could not open file %s\n", suspectedFileName);
-                        break;;
+                printf("Enter the name of the suspected file: ");
+                if (fgets(input, sizeof(input), stdin) == NULL) {
+                    printf("Failed to read input\n");
+                    break;
+                }
+                input[strcspn(input, "\n")] = '\0'; // Remove the trailing newline character
+
+                FILE *suspectedFile = fopen(input, "rb");
+                if (suspectedFile == NULL) {
+                    perror("Failed to open suspected file");
+                    break;
                 }
                 char buffer[10000];
-                unsigned int size = fread(buffer,1, sizeof(buffer), file);
-                fclose(file);
+                unsigned int size = fread(buffer,1, sizeof(buffer), suspectedFile);
+                fclose(suspectedFile);
                 if(size == 0){
                     fprintf(stderr, "Error: failed to read file.\n");
                     break;
@@ -294,7 +310,6 @@ int main(int argc, char **argv)
             }
             case 5:{
                 list_free(virus_list);
-                fclose(file);
                 exit(0);
             }
             default:
