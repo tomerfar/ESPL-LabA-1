@@ -19,18 +19,20 @@ main:    ; int main (int argc, char* argv[])
 parse_args:
     dec edx
     js end_parse_args
-    mov eax, [ecx+edx*4] ; argv[i]
+    lea eax, [ecx+edx*4] ; argv[i]
+    mov eax, [eax]
     cmp byte [eax], '-'
-    jne parse_args
+    jne next_arg
     inc eax
     cmp byte [eax], 'i'
     je open_input
     cmp byte [eax], 'o'
     je open_output
+next_arg:
     jmp parse_args
 
 open_input:
-    inc eax
+    inc eax ; skip over 'i'
     mov ebx, eax ; pointer to file name
     mov eax, 5 ; syscall number for sys_open
     xor ecx, ecx ; flags
@@ -42,7 +44,7 @@ open_input:
     jmp parse_args
 
 open_output:
-    inc eax
+    inc eax ; skip over 'o'
     mov ebx, eax ; pointer to file name
     mov eax, 5 ; syscall number for sys_open
     mov ecx, 1 ; flags (O_WRONLY)
