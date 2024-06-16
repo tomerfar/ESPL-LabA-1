@@ -1,110 +1,150 @@
-SECTION .data
-    Infile  dd 0  ; file descriptor for input file
-    Outfile dd 1  ; file descriptor for output file
-    buffer  db 0  ; buffer to read input
+section .data
     newline db 10 ; newline character
 
-SECTION .text
-; make main_function available externally
-global main
+section .bss
+    buf resb 1024 ; buffer for command line arguments
+    char resb 1 ; buffer for a single character
+    input_fd resd 0 ; file descriptor for input
+    output_fd resd 1 ; file descriptor for output
 
-main:    ; int main (int argc, char* argv[])
-    push ebp
-    mov ebp,esp
+section .text
+    extern strlen
+    global _start
 
-    ; Parse command line arguments
-    mov ecx, [ebp+8] ; pointer to argv
-    mov edx, [ebp+12] ; argc
+_start:
+    ; Set up argc and argv
+    mov ebx, [esp]         ; ebx = argc
+    lea esi, [esp + 4]     ; esi = address of argv (array of pointers)
+    dec ebx                ; decrement argc to exclude the program name
+    add esi, 4             ; move esi to point to the first argument (argv[1])
 
-parse_args:
-    dec edx
-    js end_parse_args
-    lea eax, [ecx+edx*4] ; argv[i]
-    mov eax, [eax]
-    cmp byte [eax], '-'
-    jne next_arg
-    inc eax
-    cmp byte [eax], 'i'
-    je open_input
-    cmp byte [eax], 'o'
-    je open_output
-next_arg:
-    jmp parse_args
+print_args:
+    cmp ebx, 0
+    je encode ; jump to encode instead of exit_program
 
-open_input:
-    inc eax ; skip over 'i'
-    mov ebx, eax ; pointer to file name
-    mov eax, 5 ; syscall number for sys_open
-    xor ecx, ecx ; flags
-    xor edx, edx ; mode
+    ; Get the address of the current argument
+    mov ecx, [esi]
+
+    ; Check if the argument is an option to change input/output
+    call Change_IO
+
+    ; Save ECX before calling strlen
+    push ecx
+
+    ; Call strlen
+    call strlen
+    add esp, 4            ; clean up the stack after call to strlen
+
+    ; Write the argument to stdout
+    mov edx, eax          ; length of the string
+    mov eax, 4            ; syscall number for sys_write
+    push ebx              ; save ebx (argc)
+    mov ebx, 1            ; file descriptor 1 is stdout
+    mov ecx, [esi]        ; pointer to the string
     int 0x80
-    test eax, eax
-    js end_parse_args ; if open failed, skip to end
-    mov [Infile], eax
-    jmp parse_args
+    pop ebx               ; restore ebx (argc)
 
-open_output:
-    inc eax ; skip over 'o'
-    mov ebx, eax ; pointer to file name
-    mov eax, 5 ; syscall number for sys_open
-    mov ecx, 1 ; flags (O_WRONLY)
-    xor edx, edx ; mode
+    ; Write newline
+    mov eax, 4
+    push ebx              ; save ebx (argc)
+    mov ebx, 1            ; file descriptor 1 is stdout
+    lea ecx, [newline]    ; address of newline character
+    mov edx, 1            ; length of newline
     int 0x80
-    test eax, eax
-    js end_parse_args ; if open failed, skip to end
-    mov [Outfile], eax
-    jmp parse_args
+    pop ebx               ; restore ebx (argc)
 
-end_parse_args:
+    ; Move to the next argument
+    add esi, 4            ; move to the next argument
+    dec ebx               ; decrement argument counter
+    jmp print_args
 
-    ; Read from input file, encode, and write to output file
-    mov eax, 3 ; syscall number for sys_read
-    mov ebx, [Infile] ; file descriptor
-    lea ecx, [buffer] ; buffer
-    mov edx, 1 ; count
+Change_IO:
+   cmp word [ecx], '-'+(256*'i')
+   jz change_input
+   cmp word [ecx], '-'+(256*'o')
+   jz change_output
+   ret
+
+change_input:
+    push ecx
+    add ecx, 2
+    mov eax, 5
+    mov ebx, ecx
+    xor ecx, ecx
     int 0x80
-    cmp eax, 0 ; check if EOF
-    je end
+    mov [input_fd], eax
+    pop ecx
+    ret
 
-    ; Encode only if character is in range 'A' to 'z'
-    cmp byte [buffer], 'A'
-    jl write_output
-    cmp byte [buffer], 'Z'
+change_output:
+    push ecx
+    add ecx, 2
+    mov eax, 8
+    mov ebx, ecx
+    mov ecx, 0777
+    int 0x80
+    mov [output_fd], eax
+    pop ecx
+    ret
+    
+encode:
+    ; Read a character from stdin
+    mov eax, 3
+    mov ebx, [input_fd]
+    lea ecx, [char]
+    mov edx, 1
+    int 0x80
+
+    ; Check if there are no more characters to read
+    cmp eax, 0
+    je exit_program
+
+    ; Check if the character is 'z' or 'Z'
+    cmp byte [char], 'z'
+    je wrap_z
+    cmp byte [char], 'Z'
+    je wrap_Z
+
+    ; Check if the character is in the range 'A' to 'y' or 'a' to 'y'
+    cmp byte [char], 'A'
+    jl write_char
+    cmp byte [char], 'y'
     jg check_lower
-    add byte [buffer], 1
-    cmp byte [buffer], 'Z'+1
-    jne write_output
-    mov byte [buffer], 'A'
-    jmp write_output
+    jmp encode_char
 
 check_lower:
-    cmp byte [buffer], 'a'
-    jl write_output
-    cmp byte [buffer], 'z'
-    jg write_output
-    add byte [buffer], 1
-    cmp byte [buffer], 'z'+1
-    jne write_output
-    mov byte [buffer], 'a'
+    cmp byte [char], 'a'
+    jl write_char
+    cmp byte [char], 'y'
+    jg write_char
 
-write_output:
-    ; Write to output file
-    mov eax, 4 ; syscall number for sys_write
-    mov ebx, [Outfile] ; file descriptor
-    lea ecx, [buffer] ; buffer
-    mov edx, 1 ; count
-    int 0x80
-    jmp end_parse_args
+encode_char:
+    ; Encode the character by adding 1 to its value
+    inc byte [char]
+    jmp write_char
 
-end:
-    ; Close files
-    mov eax, 6 ; syscall number for sys_close
-    mov ebx, [Infile]
-    int 0x80
-    mov ebx, [Outfile]
+wrap_z:
+    ; Wrap 'z' to 'a'
+    sub byte [char], 25
+    jmp write_char
+
+wrap_Z:
+    ; Wrap 'Z' to 'A'
+    sub byte [char], 25
+
+write_char:
+    ; Write the encoded character to stdout
+    mov eax, 4
+    mov ebx, [output_fd]
+    lea ecx, [char]
+    mov edx, 1
     int 0x80
 
-    ; Exit
-    mov eax, 1 ; syscall number for sys_exit
-    xor ebx, ebx ; exit code
+    ; Repeat the process
+    jmp encode
+
+exit_program:
+    ; Exit the program
+    mov eax, 1            ; syscall number for sys_exit
+    xor ebx, ebx          ; exit status 0
     int 0x80

