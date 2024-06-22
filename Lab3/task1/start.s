@@ -2,10 +2,10 @@ section .data
     newline db 10 ; newline character
 
 section .bss
-    buf resb 1024 ; buffer for command line arguments
-    char resb 1 ; buffer for a single character
-    input_fd resd 0 ; file descriptor for input
-    output_fd resd 1 ; file descriptor for output
+    buf resb 1024
+    char resb 1 
+    input_fd resd 0 
+    output_fd resd 1 
 
 section .text
     extern strlen
@@ -13,20 +13,19 @@ section .text
 
 _start:
     ; Set up argc and argv
-    mov ebx, [esp]         ; ebx = argc
-    lea esi, [esp + 4]     ; esi = address of argv (array of pointers)
-    dec ebx                ; decrement argc to exclude the program name
-    add esi, 4             ; move esi to point to the first argument (argv[1])
+    mov ebx, [esp]        
+    lea esi, [esp + 4]      
+    dec ebx                 
+    add esi, 4             
 
 print_args:
     cmp ebx, 0
-    je encode ; jump to encode instead of exit_program
+    je encode 
 
     ; Get the address of the current argument
     mov ecx, [esi]
 
-    ; Check if the argument is an option to change input/output
-    call Change_IO
+    call InputOutput
 
     ; Save ECX before calling strlen
     push ecx
@@ -57,15 +56,14 @@ print_args:
     add esi, 4            ; move to the next argument
     dec ebx               ; decrement argument counter
     jmp print_args
-
-Change_IO:
+ InputOutput:
    cmp word [ecx], '-'+(256*'i')
-   jz change_input
+   jz change_inFile
    cmp word [ecx], '-'+(256*'o')
-   jz change_output
+   jz change_outFile
    ret
 
-change_input:
+change_inFile:
     push ecx
     add ecx, 2
     mov eax, 5
@@ -76,7 +74,7 @@ change_input:
     pop ecx
     ret
 
-change_output:
+change_outFile:
     push ecx
     add ecx, 2
     mov eax, 8
