@@ -28,7 +28,7 @@
 process* process_list = NULL; // Initializing a global processes linked list
 
 void addProcess(process** process_list, cmdLine* cmd, pid_t pid){
-    process *new_head = malloc(sizeof(process));
+    process *new_head = (process *)malloc(sizeof(process));
     if(new_head == NULL){
         fprintf(stderr, "Failed to allocate memory for new process.\n");
     }
@@ -36,29 +36,38 @@ void addProcess(process** process_list, cmdLine* cmd, pid_t pid){
     new_head->pid = pid;
     new_head->status = RUNNING;
     new_head->next = *process_list;
-    *process_list = new_head;   
+    *process_list = new_head;
+     printf("Added process: PID=%d, Command=%s\n", pid, cmd->arguments[0]);
+     printf("processList:%s\n", (*process_list)->cmd->arguments[0]);   
 }
 
 void printProcessList(process** process_list){
+    //printf("processList:%s\n", (*process_list)->cmd->arguments[0]);
     process *current = *process_list;
+     //printf("processList:%s\n", (current)->cmd->arguments[0]);
     int i = 0;
-    printf("reached print list\n");
     if(current == NULL){
-        printf("current is null");
+        printf("current is null\n");
     }
     else{
         while(current != NULL){
-        printf("index     PID    Command     STATUS\n");
-        printf("%d     ", i);
-        printf("%d     ", current->pid);
-        printf("%d     ", current->status);
-        printf("%s     ", current->cmd->arguments[0]);
-        printf("\n");
+        printf("Index     PID    Command     STATUS\n");
+        printf("%-8d %-12d %-12s", i, current->pid, current->cmd->arguments[0]);
+        if(current->status == RUNNING){
+            printf("Running\n");
+        }
+        else if (current->status == TERMINATED){
+            printf("Terminated\n");
+        }
+        // printf("%d     ", i);
+        // printf("%d     ", current->pid);
+        // printf("%d     ", current->status);
+        // printf("%s     ", current->cmd->arguments[0]);
+        // printf("\n");
         current = current->next;
         i += 1;
         } 
     }
-   
 }
 
 
@@ -90,8 +99,7 @@ void execute(cmdLine *pCmdLines, int debug)
     exit(1);
    }
    else if(child_pid == 0){ // enters child process
-   
-    addProcess(&process_list, pCmdLines, child_pid); // adding the new child process into the process list
+   printf("cmd inside execute:%s \n", pCmdLines->arguments[0]);
     if(pCmdLines->inputRedirect != NULL){
         int fd = open(pCmdLines->inputRedirect, O_RDONLY);
         if(fd == -1){
@@ -117,6 +125,9 @@ void execute(cmdLine *pCmdLines, int debug)
         }
         close(fd);
     }
+    printf("inserting the process to the list\n");
+    
+
     if(execvp(pCmdLines->arguments[0], pCmdLines->arguments) == -1){ /* execv needs to recieve the full path name, while execvp needs only to recieve the filename, and then it searches this name inside the cd*/
       process_list->status = TERMINATED;
       perror("execvp() error");
@@ -124,6 +135,7 @@ void execute(cmdLine *pCmdLines, int debug)
     }
    }
    else{ //creates a child process that runs conccurently with the parent process.
+        addProcess(&process_list, pCmdLines, child_pid);
         if(debug){
             fprintf(stderr, "PID: %d\n", child_pid);
             fprintf(stderr,"Executing Command:%s\n", pCmdLines->arguments[0]);
@@ -174,7 +186,6 @@ void executePipe(cmdLine *pCmdLines, int debug){
     }
 
     if(cpid1 == 0){ //enters the child process
-        addProcess(&process_list, pCmdLines, cpid1); //adds the new child process into the processes list
 
         close(STDOUT_FILENO);
         dup2(pipefd[1], STDOUT_FILENO);
@@ -212,7 +223,6 @@ void executePipe(cmdLine *pCmdLines, int debug){
     }
     
      if (cpid2 == 0){ //enters a child process
-        addProcess(&process_list, pCmdLines, cpid2); //adds the new child process into the processes list
 
         close(STDIN_FILENO);
         dup2(pipefd[0], STDIN_FILENO);
@@ -227,6 +237,8 @@ void executePipe(cmdLine *pCmdLines, int debug){
             fprintf(stderr,"Executing Command:%s\n", pCmdLines->next->arguments[0]);
         }
     }
+    addProcess(&process_list, pCmdLines, cpid1);
+    addProcess(&process_list, pCmdLines, cpid2);
 
     close(pipefd[0]);
     //if(pCmdLines->blocking){
@@ -326,6 +338,7 @@ int main(int argc, char **argv)
 
         else if(parseCmd->next == NULL)
         {
+            printf("cmd:%s\n", parseCmd->arguments[0]);
             execute(parseCmd, debug);
         }
         //if the commands is neither of cd alarm or blast, it handles different commands that the user can ask for
