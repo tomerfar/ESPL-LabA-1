@@ -14,6 +14,53 @@
 
 //#define PATH_MAX 4096
 #define MY_MAX_INPUT 2048
+#define TERMINATED  -1
+#define RUNNING 1
+#define SUSPENDED 0
+
+ typedef struct process{
+        cmdLine* cmd;              /* the parsed command line*/
+        pid_t pid; 		           /* the process id that is running the command*/
+        int status;                /* status of the process: RUNNING/SUSPENDED/TERMINATED */
+        struct process *next;	   /* next process in chain */
+} process;
+
+process* process_list = NULL; // Initializing a global processes linked list
+
+void addProcess(process** process_list, cmdLine* cmd, pid_t pid){
+    process *new_head = malloc(sizeof(process));
+    if(new_head == NULL){
+        fprintf(stderr, "Failed to allocate memory for new process.\n");
+    }
+    new_head->cmd = cmd;
+    new_head->pid = pid;
+    new_head->status = RUNNING;
+    new_head->next = *process_list;
+    *process_list = new_head;   
+}
+
+void printProcessList(process** process_list){
+    process *current = *process_list;
+    int i = 0;
+    printf("reached print list\n");
+    if(current == NULL){
+        printf("current is null");
+    }
+    else{
+        while(current != NULL){
+        printf("index     PID    Command     STATUS\n");
+        printf("%d     ", i);
+        printf("%d     ", current->pid);
+        printf("%d     ", current->status);
+        printf("%s     ", current->cmd->arguments[0]);
+        printf("\n");
+        current = current->next;
+        i += 1;
+        } 
+    }
+   
+}
+
 
 void handleAlarm(int process_id){
     
@@ -42,7 +89,9 @@ void execute(cmdLine *pCmdLines, int debug)
     perror("fork() error");
     exit(1);
    }
-   else if(child_pid == 0){
+   else if(child_pid == 0){ // enters child process
+   
+    addProcess(&process_list, pCmdLines, child_pid); // adding the new child process into the process list
     if(pCmdLines->inputRedirect != NULL){
         int fd = open(pCmdLines->inputRedirect, O_RDONLY);
         if(fd == -1){
@@ -69,6 +118,7 @@ void execute(cmdLine *pCmdLines, int debug)
         close(fd);
     }
     if(execvp(pCmdLines->arguments[0], pCmdLines->arguments) == -1){ /* execv needs to recieve the full path name, while execvp needs only to recieve the filename, and then it searches this name inside the cd*/
+      process_list->status = TERMINATED;
       perror("execvp() error");
       _exit(1);  
     }
@@ -124,12 +174,15 @@ void executePipe(cmdLine *pCmdLines, int debug){
     }
 
     if(cpid1 == 0){ //enters the child process
+        addProcess(&process_list, pCmdLines, cpid1); //adds the new child process into the processes list
+
         close(STDOUT_FILENO);
         dup2(pipefd[1], STDOUT_FILENO);
         close(pipefd[1]);
         if(execvp(pCmdLines->arguments[0], pCmdLines->arguments) == -1){ /* execv needs to recieve the full path name, while execvp needs only to recieve the filename, and then it searches this name inside the cd*/
-        perror("execvp() error inside cpid1");
-        _exit(1);  
+            process_list->status = TERMINATED;
+            perror("execvp() error inside cpid1");
+            _exit(1);  
         }
         if(debug){
             fprintf(stderr, "PID: %d\n", cpid1);
@@ -158,11 +211,14 @@ void executePipe(cmdLine *pCmdLines, int debug){
         exit(EXIT_FAILURE);
     }
     
-     if (cpid2 == 0){
+     if (cpid2 == 0){ //enters a child process
+        addProcess(&process_list, pCmdLines, cpid2); //adds the new child process into the processes list
+
         close(STDIN_FILENO);
         dup2(pipefd[0], STDIN_FILENO);
         close(pipefd[0]);
         if(execvp(pCmdLines->next->arguments[0], pCmdLines->next->arguments) == -1){ /* execv needs to recieve the full path name, while execvp needs only to recieve the filename, and then it searches this name inside the cd*/
+            process_list->status = TERMINATED;
             perror("execvp() error inside cpid2");
             _exit(1);  
         }
@@ -189,6 +245,7 @@ int main(int argc, char **argv)
     char cwd[PATH_MAX];
     char input[MY_MAX_INPUT];
     cmdLine* parseCmd;
+    
 
     int debug = 0;
     for(int i = 0; i < argc; i++){
@@ -257,6 +314,12 @@ int main(int argc, char **argv)
             freeCmdLines(parseCmd);
             continue;
         }
+        else if(strcmp(parseCmd->arguments[0], "procs") == 0){ //printing all of the child processes in the program
+            printProcessList(&process_list);
+            freeCmdLines(parseCmd);
+            continue;
+        }
+
         else if(parseCmd->next != NULL){
             executePipe(parseCmd, debug);
         }
