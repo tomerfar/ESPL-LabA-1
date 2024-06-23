@@ -27,18 +27,37 @@
 
 process* process_list = NULL; // Initializing a global processes linked list
 
+cmdLine * cmdCopy(cmdLine *origin)
+{
+    cmdLine *copy = (cmdLine *)malloc(sizeof(cmdLine));
+    char *prompt = malloc(32);
+    ((char**)copy->arguments)[0] = strcpy(prompt, origin->arguments[0]);
+    return copy;
+}
+
 void addProcess(process** process_list, cmdLine* cmd, pid_t pid){
     process *new_head = (process *)malloc(sizeof(process));
     if(new_head == NULL){
         fprintf(stderr, "Failed to allocate memory for new process.\n");
     }
-    new_head->cmd = cmd;
+    new_head->cmd = cmdCopy(cmd);
     new_head->pid = pid;
     new_head->status = RUNNING;
     new_head->next = *process_list;
     *process_list = new_head;
      printf("Added process: PID=%d, Command=%s\n", pid, cmd->arguments[0]);
      printf("processList:%s\n", (*process_list)->cmd->arguments[0]);   
+}
+
+void updateProcessStatus(process* process_list, pid_t pid, int status) {
+    process* current = process_list;
+    while (current != NULL) {
+        if (current->pid == pid) {
+            current->status = status;
+            break;
+        }
+        current = current->next;
+    }
 }
 
 void printProcessList(process** process_list){
@@ -143,6 +162,7 @@ void execute(cmdLine *pCmdLines, int debug)
 
         if(pCmdLines->blocking){ //blocking is 1 
             waitpid(child_pid, NULL, 0);
+            updateProcessStatus(process_list, child_pid, TERMINATED);
         }
     }
 }
@@ -243,7 +263,9 @@ void executePipe(cmdLine *pCmdLines, int debug){
     close(pipefd[0]);
     //if(pCmdLines->blocking){
         waitpid(cpid1, NULL, 0);
+        updateProcessStatus(process_list, cpid1, TERMINATED);
         waitpid(cpid2, NULL, 0);
+        updateProcessStatus(process_list, cpid2, TERMINATED);
     //}
         dup2(saved_stdin, STDIN_FILENO);
         dup2(saved_stdout, STDOUT_FILENO);
