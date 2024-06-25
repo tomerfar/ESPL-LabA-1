@@ -71,7 +71,7 @@ void printProcessList(process** process_list){
     else{
         while(current != NULL){
         printf("Index     PID    Command     STATUS\n");
-        printf("%-8d %-12d %-12s", i, current->pid, current->cmd->arguments[0]);
+        printf("%-8d %-12d %-15s", i, current->pid, current->cmd->arguments[0]);
         if(current->status == RUNNING){
             printf("Running\n");
         }
