@@ -32,6 +32,7 @@ cmdLine * cmdCopy(cmdLine *origin)
     cmdLine *copy = (cmdLine *)malloc(sizeof(cmdLine));
     char *prompt = malloc(32);
     ((char**)copy->arguments)[0] = strcpy(prompt, origin->arguments[0]);
+
     return copy;
 }
 
@@ -49,6 +50,7 @@ void addProcess(process** process_list, cmdLine* cmd, pid_t pid){
      printf("processList:%s\n", (*process_list)->cmd->arguments[0]);   
 }
 
+
 void updateProcessStatus(process* process_list, pid_t pid, int status) {
     process* current = process_list;
     while (current != NULL) {
@@ -60,10 +62,76 @@ void updateProcessStatus(process* process_list, pid_t pid, int status) {
     }
 }
 
-void printProcessList(process** process_list){
-    //printf("processList:%s\n", (*process_list)->cmd->arguments[0]);
+
+void freeProcess(process *processToFree){
+    freeCmdLines(processToFree->cmd);
+    free(processToFree);
+}
+
+
+process *removeProcess(process *prev, process *current){
+    process *ret = NULL;
+    if(prev == NULL){ //will enter this condition only if the process that terminates is the first in the list.
+        if(current->next == NULL){
+            process_list = NULL;
+            ret = NULL;
+        }
+        else{
+        process_list = current->next; // updating the list process to point at the new head of the list.
+        ret = current->next;
+        }
+        freeProcess(current);
+    }
+    else
+    {
+        ret = current->next;
+        prev->next = current->next;
+        freeProcess(current);
+    }
+    return ret;
+    
+}
+
+void updateProcessList(process **process_list)
+{
     process *current = *process_list;
-     //printf("processList:%s\n", (current)->cmd->arguments[0]);
+    while (current)
+    {
+        int currentStatus = 0; // Initialize currentStatus to a default value
+        int result = waitpid(current->pid, &currentStatus, WNOHANG | WUNTRACED);
+        if (result == 0)
+        {
+            currentStatus = RUNNING;
+        }
+        else
+        {
+            if (WIFSTOPPED(currentStatus))
+            {
+                currentStatus = SUSPENDED;
+            }
+            else if (WIFCONTINUED(currentStatus))
+            {
+                currentStatus = RUNNING;
+            }
+            else if (WIFEXITED(currentStatus) || WIFSIGNALED(currentStatus))
+            {
+                currentStatus = TERMINATED;
+            }
+        }
+
+        if (currentStatus != current->status)
+        {
+            updateProcessStatus(*process_list, current->pid, currentStatus);
+        }
+        current = current->next;
+    }
+}
+
+
+
+void printProcessList(process** process_list){
+    process *prev = NULL;
+    process *current = *process_list;
     int i = 0;
     if(current == NULL){
         printf("current is null\n");
@@ -71,21 +139,39 @@ void printProcessList(process** process_list){
     else{
         while(current != NULL){
         printf("Index     PID    Command     STATUS\n");
-        printf("%-8d %-12d %-15s", i, current->pid, current->cmd->arguments[0]);
+        printf("%-8d %-8d %-8s", i, current->pid, current->cmd->arguments[0]);
         if(current->status == RUNNING){
             printf("Running\n");
+            prev = current;
+            current = current->next;
         }
         else if (current->status == TERMINATED){
             printf("Terminated\n");
+            current = removeProcess(prev, current);
         }
-        // printf("%d     ", i);
-        // printf("%d     ", current->pid);
-        // printf("%d     ", current->status);
-        // printf("%s     ", current->cmd->arguments[0]);
-        // printf("\n");
-        current = current->next;
         i += 1;
         } 
+    }
+}
+
+
+void Procsfunc(process **process_list)
+{
+    //printf("%-*s %-*s   %-*s\n", 8, "PID", 8, "Command", 8, "STATUS");
+    updateProcessList(process_list);
+    printProcessList(process_list);
+}
+
+
+void freeProcessList(process **process_list){
+    process *current = *process_list;
+    while(current != NULL)
+    {
+        process *next = current->next;
+        //free(current->cmd); // check if necessary, we maybe clean the cmd in the main loop
+        free(current);
+
+        current = next;
     }
 }
 
@@ -303,6 +389,7 @@ int main(int argc, char **argv)
             return 1;
         }
         if (strcmp(input, "quit\n") == 0) {
+        freeProcessList(&process_list);    
         printf("Exiting shell.\n");
         break;
         }
@@ -349,7 +436,8 @@ int main(int argc, char **argv)
             continue;
         }
         else if(strcmp(parseCmd->arguments[0], "procs") == 0){ //printing all of the child processes in the program
-            printProcessList(&process_list);
+            Procsfunc(&process_list);
+            //printProcessList(&process_list);
             freeCmdLines(parseCmd);
             continue;
         }
