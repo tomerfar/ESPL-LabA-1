@@ -74,9 +74,7 @@ void addProcess(process** process_list, cmdLine* cmd, pid_t pid){
     new_head->pid = pid;
     new_head->status = RUNNING;
     new_head->next = *process_list;
-    *process_list = new_head;
-     printf("Added process: PID=%d, Command=%s\n", pid, cmd->arguments[0]);
-     printf("processList:%s\n", (*process_list)->cmd->arguments[0]);   
+    *process_list = new_head;   
 }
 
 
@@ -184,7 +182,6 @@ void printProcessList(process** process_list){
 
 void Procsfunc(process **process_list)
 {
-    //printf("%-*s %-*s   %-*s\n", 8, "PID", 8, "Command", 8, "STATUS");
     updateProcessList(process_list);
     printProcessList(process_list);
 }
@@ -240,7 +237,6 @@ void execute(cmdLine *pCmdLines, int debug)
     exit(1);
    }
    else if(child_pid == 0){ // enters child process
-   printf("cmd inside execute:%s \n", pCmdLines->arguments[0]);
     if(pCmdLines->inputRedirect != NULL){
         int fd = open(pCmdLines->inputRedirect, O_RDONLY);
         if(fd == -1){
@@ -266,7 +262,6 @@ void execute(cmdLine *pCmdLines, int debug)
         }
         close(fd);
     }
-    printf("inserting the process to the list\n");
     
 
     if(execvp(pCmdLines->arguments[0], pCmdLines->arguments) == -1){ /* execv needs to recieve the full path name, while execvp needs only to recieve the filename, and then it searches this name inside the cd*/
@@ -383,16 +378,14 @@ void executePipe(cmdLine *pCmdLines, int debug){
     addProcess(&process_list, parseCmdLines(input), cpid2);
 
     close(pipefd[0]);
-    //if(pCmdLines->blocking){
-        waitpid(cpid1, NULL, 0);
-        updateProcessStatus(process_list, cpid1, TERMINATED);
-        waitpid(cpid2, NULL, 0);
-        updateProcessStatus(process_list, cpid2, TERMINATED);
-    //}
-        dup2(saved_stdin, STDIN_FILENO);
-        dup2(saved_stdout, STDOUT_FILENO);
-        close(saved_stdin);
-        close(saved_stdout);
+    waitpid(cpid1, NULL, 0);
+    updateProcessStatus(process_list, cpid1, TERMINATED);
+    waitpid(cpid2, NULL, 0);
+    updateProcessStatus(process_list, cpid2, TERMINATED);
+    dup2(saved_stdin, STDIN_FILENO);
+    dup2(saved_stdout, STDOUT_FILENO);
+    close(saved_stdin);
+    close(saved_stdout);
 }
 
 
@@ -517,7 +510,6 @@ int main(int argc, char **argv)
         }
         else if(strcmp(parseCmd->arguments[0], "procs") == 0){ //printing all of the child processes in the program
             Procsfunc(&process_list);
-            //printProcessList(&process_list);
             freeCmdLines(parseCmd);
             continue;
         }
@@ -526,36 +518,12 @@ int main(int argc, char **argv)
             freeCmdLines(parseCmd);
             continue;
         }
-
-        // else if(strcmp(parseCmd->arguments[0], "!!") == 0){
-        //     const char *last_cmd = get_history(history_count);
-        //     if (last_cmd != NULL) {
-        //         strcpy(input, last_cmd);
-        //         printf("Executing: %s\n", input);
-        //         add_history(input);
-        //          } else {
-        //         continue;
-        //     }
-        // } else if ((strcmp(parseCmd->arguments[0], "!") == 0) && isdigit(parseCmd->arguments[1])) {
-        //     int index = atoi(parseCmd->arguments[1]);
-
-        //     const char *cmd = get_history(index);
-        //     if (cmd != NULL) {
-        //         strcpy(input, cmd);
-        //         printf("Executing: %s\n", input);
-        //         add_history(input);
-        //     } else {
-        //         continue;
-        //     }
-        // }
-
         else if(parseCmd->next != NULL){
             executePipe(parseCmd, debug);
         }
 
         else if(parseCmd->next == NULL)
         {
-            printf("cmd:%s\n", parseCmd->arguments[0]);
             execute(parseCmd, debug);
         }
         //if the commands is different than all of the above, it handles it anyway with execute or executePipe
