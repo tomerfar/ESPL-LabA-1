@@ -64,14 +64,6 @@ const char* get_history(int index) {
 
 
 
-cmdLine * cmdCopy(cmdLine *origin)
-{
-    cmdLine *copy = (cmdLine *)malloc(sizeof(cmdLine));
-    char *prompt = malloc(32);
-    ((char**)copy->arguments)[0] = strcpy(prompt, origin->arguments[0]);
-
-    return copy;
-}
 
 void addProcess(process** process_list, cmdLine* cmd, pid_t pid){
     process *new_head = (process *)malloc(sizeof(process));
@@ -101,33 +93,32 @@ void updateProcessStatus(process* process_list, pid_t pid, int status) {
 
 
 void freeProcess(process *processToFree){
-    //freeCmdLines(processToFree->cmd);
+
     free(processToFree);
 }
 
 
-process *removeProcess(process *prev, process *current){
+process *removeProcess(process *prev, process *current) {
     process *ret = NULL;
-    if(prev == NULL){ //will enter this condition only if the process that terminates is the first in the list.
-        if(current->next == NULL){
+    if (prev == NULL) {
+        if (current->next == NULL) {
             process_list = NULL;
             ret = NULL;
+        } else {
+            process_list = current->next;
+            ret = current->next;
         }
-        else{
-        process_list = current->next; // updating the list process to point at the new head of the list.
-        ret = current->next;
-        }
-        freeProcess(current);
-    }
-    else
-    {
+        freeCmdLines(current->cmd); // Free cmdLine structure
+        free(current);
+    } else {
         ret = current->next;
         prev->next = current->next;
-        freeProcess(current);
+        freeCmdLines(current->cmd); // Free cmdLine structure
+        free(current);
     }
     return ret;
-    
 }
+
 
 void updateProcessList(process **process_list)
 {
@@ -170,10 +161,6 @@ void printProcessList(process** process_list){
     process *prev = NULL;
     process *current = *process_list;
     int i = 0;
-    if(current == NULL){
-        printf("current is null\n");
-    }
-    else{
         printf("%-8s %-8s %-16s %-8s\n", "Index", "PID", "Command", "STATUS");
         while(current != NULL){
         printf("%-8d %-8d %-16s ", i, current->pid, current->cmd->arguments[0]);
@@ -193,7 +180,6 @@ void printProcessList(process** process_list){
         i += 1;
         } 
     }
-}
 
 
 void Procsfunc(process **process_list)
@@ -204,17 +190,17 @@ void Procsfunc(process **process_list)
 }
 
 
-void freeProcessList(process **process_list){
+void freeProcessList(process **process_list) {
     process *current = *process_list;
-    while(current != NULL)
-    {
+    while (current != NULL) {
         process *next = current->next;
-        free(current->cmd); // check if necessary, we maybe clean the cmd in the main loop
+        freeCmdLines(current->cmd);
         free(current);
-
         current = next;
     }
+    *process_list = NULL; // Set the process_list to NULL after freeing all processes
 }
+
 
 
 void handleAlarm(int process_id){
