@@ -64,7 +64,7 @@ void updateProcessStatus(process* process_list, pid_t pid, int status) {
 
 
 void freeProcess(process *processToFree){
-    freeCmdLines(processToFree->cmd);
+    //freeCmdLines(processToFree->cmd);
     free(processToFree);
 }
 
@@ -137,9 +137,9 @@ void printProcessList(process** process_list){
         printf("current is null\n");
     }
     else{
+        printf("%-8s %-8s %-16s %-8s\n", "Index", "PID", "Command", "STATUS");
         while(current != NULL){
-        printf("Index     PID    Command     STATUS\n");
-        printf("%-8d %-8d %-8s", i, current->pid, current->cmd->arguments[0]);
+        printf("%-8d %-8d %-16s ", i, current->pid, current->cmd->arguments[0]);
         if(current->status == RUNNING){
             printf("Running\n");
             prev = current;
@@ -148,6 +148,10 @@ void printProcessList(process** process_list){
         else if (current->status == TERMINATED){
             printf("Terminated\n");
             current = removeProcess(prev, current);
+        }
+        else if(current->status == SUSPENDED){
+            printf("Suspended\n");
+            current = current->next;
         }
         i += 1;
         } 
@@ -195,6 +199,15 @@ void handleAlarm(int process_id){
     }
 
 }
+
+ void handleSleep(int process_id){
+     if(kill(process_id, SIGTSTP) == -1){
+         fprintf(stderr, "failed to send SIGKTSTP sign\n");
+     }
+     else{
+         printf("SIGTSTP sign was sent to process: %d\n", process_id);
+     }
+ }
 
 void execute(cmdLine *pCmdLines, int debug)
 {
@@ -374,15 +387,16 @@ int main(int argc, char **argv)
             debug = 1;
         }
     }
-     
-    while(1){ /* infinite loop*/
-        if(getcwd(cwd, sizeof(cwd)) != NULL){
+
+    if(getcwd(cwd, sizeof(cwd)) != NULL){
             printf("%s\n ", cwd); //check in the frontal lab may need to go inside the while loop
         }
         else{
             perror("getcwd() error");
             return 1;
         }
+     
+    while(1){ /* infinite loop*/
 
         if(fgets(input, sizeof(input), stdin) == NULL){
             perror("Errors in reading the input");
@@ -410,8 +424,17 @@ int main(int argc, char **argv)
             else if(chdir(parseCmd->arguments[1]) == -1){ /* checks if the next argument is a name of an actual file */
                 fprintf(stderr, "cd: %s: No such file or directory \n", parseCmd->arguments[1]);
             }
+            else {
+        
+                if (getcwd(cwd, sizeof(cwd)) != NULL) {
+                    printf("New Directory: %s\n", cwd); // Print the new current directory
+                } else {
+                    perror("getcwd() error");
+                }
+            
             freeCmdLines(parseCmd);
             continue; /* cd command is handled internally by the shell and doesn't require creating a new process or executing any other command*/
+                }
         }
         else if(strcmp(parseCmd->arguments[0], "alarm") == 0){ //wakes up a sleeping process
             if(parseCmd->argCount < 2){
@@ -431,6 +454,17 @@ int main(int argc, char **argv)
             else{
                 int pid = atoi(parseCmd->arguments[1]);
                 handleBlast(pid);
+            }
+            freeCmdLines(parseCmd);
+            continue;
+        }
+        else if(strcmp(parseCmd->arguments[0], "sleep") == 0){
+            if(parseCmd->argCount < 2){
+                fprintf(stderr, "sleep: pid is missing\n");
+            }
+            else{
+                int pid = atoi(parseCmd->arguments[1]);
+                handleSleep(pid);
             }
             freeCmdLines(parseCmd);
             continue;
@@ -457,4 +491,3 @@ int main(int argc, char **argv)
 
     return 0;
 }
-
