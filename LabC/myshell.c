@@ -17,6 +17,8 @@
 #define TERMINATED  -1
 #define RUNNING 1
 #define SUSPENDED 0
+#define HISTLEN 20
+#define MAX_BUF 200
 
  typedef struct process{
         cmdLine* cmd;              /* the parsed command line*/
@@ -26,6 +28,39 @@
 } process;
 
 process* process_list = NULL; // Initializing a global processes linked list
+char history[HISTLEN][MAX_BUF]; // The command history array
+int history_count = 0;          // Number of commands in history
+int history_start = 0;          // Index of the oldest command
+int history_end = 0;            // Index of the newest command
+
+void add_history(const char *cmd) {
+    strncpy(history[history_end], cmd, MAX_BUF);
+    history[history_end][MAX_BUF - 1] = '\0'; // Ensure null-termination
+    history_end = (history_end + 1) % HISTLEN;
+
+    if (history_count < HISTLEN) {
+        history_count++;
+    } else {
+        history_start = (history_start + 1) % HISTLEN; // Overwrite oldest command
+    }
+}
+
+void print_history() {
+    for (int i = 0; i < history_count; i++) {
+        int index = (history_start + i) % HISTLEN;
+        printf("%d %s\n", i + 1, history[index]);
+    }
+}
+
+const char* get_history(int index) {
+    if (index < 1 || index > history_count) {
+        fprintf(stderr, "Error: Invalid history index.\n");
+        return NULL;
+    }
+    return history[(history_start + index - 1) % HISTLEN];
+}
+
+
 
 cmdLine * cmdCopy(cmdLine *origin)
 {
@@ -402,11 +437,35 @@ int main(int argc, char **argv)
             perror("Errors in reading the input");
             return 1;
         }
+
+        
         if (strcmp(input, "quit\n") == 0) {
         freeProcessList(&process_list);    
         printf("Exiting shell.\n");
         break;
         }
+        
+
+        if (strcmp(input, "!!\n") == 0) {
+            const char *last_cmd = get_history(history_count);
+            if (last_cmd != NULL) {
+                strcpy(input, last_cmd);
+                printf("Executing: %s\n", input);
+            } else {
+                continue;
+            } 
+        } else if (input[0] == '!' && isdigit(input[1])) {
+            int index = atoi(&input[1]);
+            const char *cmd = get_history(index);
+            if (cmd != NULL) {
+                strcpy(input, cmd);
+                printf("Executing: %s\n", input);
+            } else {
+                continue;
+            }
+        }
+
+        add_history(input);
 
         parseCmd = parseCmdLines(input);
         if(parseCmd == NULL){
@@ -475,6 +534,32 @@ int main(int argc, char **argv)
             freeCmdLines(parseCmd);
             continue;
         }
+        else if(strcmp(parseCmd->arguments[0], "history") == 0){
+            print_history();
+            continue;
+        }
+
+        // else if(strcmp(parseCmd->arguments[0], "!!") == 0){
+        //     const char *last_cmd = get_history(history_count);
+        //     if (last_cmd != NULL) {
+        //         strcpy(input, last_cmd);
+        //         printf("Executing: %s\n", input);
+        //         add_history(input);
+        //          } else {
+        //         continue;
+        //     }
+        // } else if ((strcmp(parseCmd->arguments[0], "!") == 0) && isdigit(parseCmd->arguments[1])) {
+        //     int index = atoi(parseCmd->arguments[1]);
+
+        //     const char *cmd = get_history(index);
+        //     if (cmd != NULL) {
+        //         strcpy(input, cmd);
+        //         printf("Executing: %s\n", input);
+        //         add_history(input);
+        //     } else {
+        //         continue;
+        //     }
+        // }
 
         else if(parseCmd->next != NULL){
             executePipe(parseCmd, debug);
@@ -485,7 +570,7 @@ int main(int argc, char **argv)
             printf("cmd:%s\n", parseCmd->arguments[0]);
             execute(parseCmd, debug);
         }
-        //if the commands is neither of cd alarm or blast, it handles different commands that the user can ask for
+        //if the commands is different than all of the above, it handles it anyway with execute or executePipe
         freeCmdLines(parseCmd);
     }
 
