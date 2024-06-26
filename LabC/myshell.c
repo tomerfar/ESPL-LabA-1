@@ -20,6 +20,8 @@
 #define HISTLEN 20
 #define MAX_BUF 200
 
+ char input[MY_MAX_INPUT];
+
  typedef struct process{
         cmdLine* cmd;              /* the parsed command line*/
         pid_t pid; 		           /* the process id that is running the command*/
@@ -76,7 +78,7 @@ void addProcess(process** process_list, cmdLine* cmd, pid_t pid){
     if(new_head == NULL){
         fprintf(stderr, "Failed to allocate memory for new process.\n");
     }
-    new_head->cmd = cmdCopy(cmd);
+    new_head->cmd = cmd;
     new_head->pid = pid;
     new_head->status = RUNNING;
     new_head->next = *process_list;
@@ -207,7 +209,7 @@ void freeProcessList(process **process_list){
     while(current != NULL)
     {
         process *next = current->next;
-        //free(current->cmd); // check if necessary, we maybe clean the cmd in the main loop
+        free(current->cmd); // check if necessary, we maybe clean the cmd in the main loop
         free(current);
 
         current = next;
@@ -288,7 +290,7 @@ void execute(cmdLine *pCmdLines, int debug)
     }
    }
    else{ //creates a child process that runs conccurently with the parent process.
-        addProcess(&process_list, pCmdLines, child_pid);
+        addProcess(&process_list, parseCmdLines(input), child_pid);
         if(debug){
             fprintf(stderr, "PID: %d\n", child_pid);
             fprintf(stderr,"Executing Command:%s\n", pCmdLines->arguments[0]);
@@ -391,8 +393,8 @@ void executePipe(cmdLine *pCmdLines, int debug){
             fprintf(stderr,"Executing Command:%s\n", pCmdLines->next->arguments[0]);
         }
     }
-    addProcess(&process_list, pCmdLines, cpid1);
-    addProcess(&process_list, pCmdLines, cpid2);
+    addProcess(&process_list, parseCmdLines(input), cpid1);
+    addProcess(&process_list, parseCmdLines(input), cpid2);
 
     close(pipefd[0]);
     //if(pCmdLines->blocking){
@@ -411,7 +413,6 @@ void executePipe(cmdLine *pCmdLines, int debug){
 int main(int argc, char **argv)
 {
     char cwd[PATH_MAX];
-    char input[MY_MAX_INPUT];
     cmdLine* parseCmd;
     
 
@@ -465,7 +466,7 @@ int main(int argc, char **argv)
             }
         }
 
-        add_history(input);
+        add_history(input); //adding the unparsed command to the commands queue
 
         parseCmd = parseCmdLines(input);
         if(parseCmd == NULL){
@@ -536,6 +537,7 @@ int main(int argc, char **argv)
         }
         else if(strcmp(parseCmd->arguments[0], "history") == 0){
             print_history();
+            freeCmdLines(parseCmd);
             continue;
         }
 
