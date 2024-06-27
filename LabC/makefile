@@ -25,4 +25,4 @@ looper.o: looper.c
 .PHONY: clean 
 
 clean:
-	rm -f myshell myshell.o LineParser.o  mypipeline mypipeline.o
+	rm -f myshell myshell.o LineParser.o  mypipeline mypipeline.o looper looper.o
