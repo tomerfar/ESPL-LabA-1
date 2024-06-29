@@ -156,6 +156,7 @@ void saveIntoFile(state* s){
     FILE *file = fopen(s->file_name, "r+b"); // open to read and write from binary without truncating
     if (file == NULL) {
         perror("Error opening file");
+        fclose(file);
         return;
     }
 
@@ -169,7 +170,7 @@ void saveIntoFile(state* s){
 
     fseek(file, target_location, SEEK_SET);
 
-    size_t write_size = length * s->unit_size;
+    //size_t write_size = length * s->unit_size;
     unsigned char *source = (unsigned char *)source_address;
 
     size_t written = fwrite(source, s->unit_size, length, file);
@@ -189,8 +190,48 @@ void debug(state* s){
 
 
 void memoryModify(state* s){
-    printf("Not implemented yet\n");
+    if (s->mem_count == 0) {
+        printf("Error: Memory buffer is empty.\n");
+        return;
+    }
+
+    printf("Please enter <location> <val>\n");
+    char input[100];
+    fgets(input, sizeof(input), stdin);
+    unsigned int location; //location from where we insert the new data into the buffer
+    unsigned int val; // new value to be inserted into the memory buffer
+    sscanf(input, "%x %x", &location, &val);
+
+    if (s->debug_mode) {
+        fprintf(stderr, "Debug: location=0x%x, val=0x%x\n", location, val);
+    }
+
+    /*Calculate maximum valid location based on unit size and mem_count*/ 
+    unsigned int max_location = s->mem_count - s->unit_size;
+    if (location > max_location) {
+        printf("Error: Invalid location. It exceeds memory buffer size.\n");
+        return;
+    }
+
+    /*Modify memory buffer at the specified location with new value*/ 
+    switch (s->unit_size) { //cases according to unit size
+        case 1:
+            s->mem_buf[location] = (unsigned char)val;
+            break;
+        case 2:
+            *(unsigned short*)(s->mem_buf + location) = (unsigned short)val;
+            break;
+        case 4:
+            *(unsigned int*)(s->mem_buf + location) = (unsigned int)val;
+            break;
+        default:
+            printf("Error: Unsupported unit size.\n");
+            return;
+    }
+
+    printf("Successfully modified memory at location 0x%x with value 0x%x.\n", location, val);
 }
+
 
 void quit(state* s){
     if (s->debug_mode) {
