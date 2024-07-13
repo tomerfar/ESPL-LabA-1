@@ -5,7 +5,6 @@
 #include <sys/wait.h>
 
 
-
 int main(int argc, char **argv){
 
 char *command1[] = {"ls", "-l", NULL};
