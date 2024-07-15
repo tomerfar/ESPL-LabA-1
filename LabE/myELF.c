@@ -9,21 +9,21 @@
 
 // Global variables
 typedef struct {
-    int debug_mode;    // Flag for debug mode
-    int fd1;           // File descriptor for the first ELF file
-    int fd2;           // File descriptor for the second ELF file
-    void *map_start1;  // Memory-mapped start address for the first ELF file
-    void *map_start2;  // Memory-mapped start address for the second ELF file
-    size_t file_size1; // Size of the first ELF file
-    size_t file_size2; // Size of the second ELF file
+    int debug_mode;
+    int fd1;
+    int fd2;
+    void *map_start1;
+    void *map_start2;
+    size_t file_size1;
+    size_t file_size2;
     char file_name1[256];
     char file_name2[256];
 } state;
 
-// Initialize the state structure
+// init
 state s = {0, -1, -1, NULL, NULL, 0, 0};
 
-// Function prototypes
+// declarations
 void toggle_debug_mode(state* s);
 void examine_elf_file(state* s);
 void print_section_names(state* s);
@@ -32,7 +32,7 @@ void check_files_for_merge(state* s);
 void merge_elf_files(state* s);
 void quit(state* s);
 
-// Menu structure
+
 struct menu_option {
     char *name;
     void (*func)();
@@ -49,7 +49,7 @@ struct menu_option menu[] = {
 };
 
 
-void copyCharArr(char arr1[], char arr2[]) {
+void copy_char_array(char arr1[], char arr2[]) {
     for (int i = 0; i < 256 && arr2[i] != '\0'; i++) {
         arr1[i] = arr2[i];
     }
@@ -70,31 +70,31 @@ void examine_elf_file(state* s) {
     printf("Enter ELF file name: ");
     char file_name[256];
     fgets(file_name, sizeof(file_name), stdin);
-    file_name[strcspn(file_name, "\n")] = '\0'; // Remove newline character
+    file_name[strcspn(file_name, "\n")] = '\0'; // for removing newline char
 
     int fd = open(file_name, O_RDONLY);
     if (fd < 0) {
-        perror("Failed to open file");
+        perror("Error: Failed to open file");
         return;
     }
 
     off_t file_size = lseek(fd, 0, SEEK_END);
     if (file_size == -1) {
-        perror("Failed to get file size");
+        perror("Error: Failed to get file size");
         close(fd);
         return;
     }
 
     void *map_start = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (map_start == MAP_FAILED) {
-        perror("Failed to map file");
+        perror("Error: Failed to map file");
         close(fd);
         return;
     }
 
     Elf32_Ehdr *header = (Elf32_Ehdr *)map_start;
     if (strncmp((char*)header->e_ident, ELFMAG, SELFMAG) != 0) {
-        printf("Not an ELF file\n");
+        printf("Error: Not an ELF file\n");
         munmap(map_start, file_size);
         close(fd);
         return;
@@ -115,16 +115,16 @@ void examine_elf_file(state* s) {
         s->fd1 = fd;
         s->map_start1 = map_start;
         s->file_size1 = file_size;
-        copyCharArr(s->file_name1, file_name);
+        copy_char_array(s->file_name1, file_name);
     } else {
         s->fd2 = fd;
         s->map_start2 = map_start;
         s->file_size2 = file_size;
-        copyCharArr(s->file_name2, file_name);
+        copy_char_array(s->file_name2, file_name);
     }
 }
 
-// Function to convert section type to a human-readable string
+// Converting section types into readable words
 const char *get_section_type(uint32_t sh_type) {
     switch (sh_type) {
         case SHT_NULL:          return "NULL";
@@ -148,10 +148,9 @@ const char *get_section_type(uint32_t sh_type) {
     }
 }
 
-// Print section names of the ELF files
 void print_section_names(state* s) {
     if (s->fd1 == -1 && s->fd2 == -1) {
-        printf("No ELF files opened. Please use 'Examine ELF File' first.\n");
+        printf("Error: No ELF files opened. Please use 'Examine ELF File' first.\n");
         return;
     }
 
@@ -170,7 +169,7 @@ void print_section_names(state* s) {
 
         printf("\nFile: %s\n", (file_index == 0) ? s->file_name1 : s->file_name2);
 
-        if (s->debug_mode) {
+        if (s->debug_mode) { //prints important information in case were in debug mode
         printf("Debug: ELF header details:\n");
         printf("  e_shoff: %x\n", header->e_shoff);
         printf("  e_shnum: %d\n", header->e_shnum);
@@ -180,30 +179,28 @@ void print_section_names(state* s) {
         printf("  shstrtab_size: %x\n", shstrtab_header->sh_size);
         }
 
-        printf("[index] section_name section_address section_offset section_size section_type\n");
+        printf("[index] section_name             section_address section_offset section_size section_type\n");
 
         for (int i = 0; i < header->e_shnum; i++) {
-            printf("[%2d] %s 0x%08x 0x%06x 0x%06x %s\n",
-                   i,
-                   &shstrtab[section_headers[i].sh_name],
-                   section_headers[i].sh_addr,
-                   section_headers[i].sh_offset,
-                   section_headers[i].sh_size,
-                   get_section_type(section_headers[i].sh_type));
+            printf("[%2d] %-24s 0x%08x      0x%06x         0x%06x       %s\n",
+                i,
+                &shstrtab[section_headers[i].sh_name],
+                section_headers[i].sh_addr,
+                section_headers[i].sh_offset,
+                section_headers[i].sh_size,
+                get_section_type(section_headers[i].sh_type));
         }
     }
 }
+// char* getSectionName(Elf32_Ehdr* elf_header, int index) {
+//     Elf32_Shdr *section_header = (Elf32_Shdr *)((char *)elf_header + elf_header->e_shoff);
+//     if (index >= 0 && index < elf_header->e_shnum) {
+//         char *strtab = (char *)elf_header + section_header[elf_header->e_shstrndx].sh_offset;
+//         return strtab + section_header[index].sh_name;
+//     }
+//     return "N/A";
+// }
 
-char* getSectionName(Elf32_Ehdr* elf_header, int index) {
-    Elf32_Shdr *section_header = (Elf32_Shdr *)((char *)elf_header + elf_header->e_shoff);
-    if (index >= 0 && index < elf_header->e_shnum) {
-        char *strtab = (char *)elf_header + section_header[elf_header->e_shstrndx].sh_offset;
-        return strtab + section_header[index].sh_name;
-    }
-    return "N/A";
-}
-
-// Function to get section name from index
 const char *get_section_name(Elf32_Ehdr *header, int index) {
     if (index >= 0 && index < header->e_shnum) {
         Elf32_Shdr *section_headers = (Elf32_Shdr *)((char *)header + header->e_shoff);
@@ -211,7 +208,7 @@ const char *get_section_name(Elf32_Ehdr *header, int index) {
         char *shstrtab = (char *)header + shstrtab_header->sh_offset;
         return shstrtab + section_headers[index].sh_name;
     }
-    return "N/A";
+    return "Unaviliable";
 }
 
 
@@ -235,11 +232,10 @@ void print_symbols(state* s) {
         Elf32_Shdr *strtab_header = NULL;
         const char *strtab = NULL;
 
-        // Find symbol table and string table sections
         for (int i = 0; i < header->e_shnum; i++) {
             if (section_headers[i].sh_type == SHT_SYMTAB || section_headers[i].sh_type == SHT_DYNSYM) {
                 symtab_header = &section_headers[i];
-                strtab_header = &section_headers[section_headers[i].sh_link]; // Link points to associated string table
+                strtab_header = &section_headers[section_headers[i].sh_link];
                 break;
             }
         }
@@ -249,7 +245,6 @@ void print_symbols(state* s) {
             continue;
         }
 
-        // Calculate symbol count and symbol table start
         int symbol_count = symtab_header->sh_size / sizeof(Elf32_Sym);
         Elf32_Sym *symtab = (Elf32_Sym *)((char *)header + symtab_header->sh_offset);
         strtab = (const char *)((char *)header + strtab_header->sh_offset);
@@ -262,7 +257,7 @@ void print_symbols(state* s) {
         printf("\nFile: %s\n", (file_index == 0) ? s->file_name1 : s->file_name2);
         printf("[index] value section_index section_name symbol_name\n");
 
-        // Print each symbol's information
+        // printing the symbols info
         for (int i = 0; i < symbol_count; i++) {
             const char *section_name = get_section_name(header, symtab[i].st_shndx);
             printf("[%2d] 0x%08x %d %s %s\n",
@@ -276,7 +271,7 @@ void print_symbols(state* s) {
 }
 
 
-// Function to check files for merge
+// checks whether we can merge the current loaded files
 void check_files_for_merge(state* s) {
     if (s->fd1 == -1 || s->fd2 == -1) {
         printf("Two ELF files must be opened for merging.\n");
@@ -290,7 +285,7 @@ void check_files_for_merge(state* s) {
     Elf32_Shdr *symtab_header1 = NULL;
     Elf32_Shdr *symtab_header2 = NULL;
 
-    // Find symbol table in the first ELF file
+    // symbols in the 1st elf file
     for (int i = 0; i < header1->e_shnum; i++) {
         if (section_headers1[i].sh_type == SHT_SYMTAB || section_headers1[i].sh_type == SHT_DYNSYM) {
             if (symtab_header1) {
@@ -306,7 +301,7 @@ void check_files_for_merge(state* s) {
         return;
     }
 
-    // Find symbol table in the second ELF file
+    // symbols in the 2nd elf file
     for (int i = 0; i < header2->e_shnum; i++) {
         if (section_headers2[i].sh_type == SHT_SYMTAB || section_headers2[i].sh_type == SHT_DYNSYM) {
             if (symtab_header2) {
@@ -385,7 +380,7 @@ void quit(state* s) {
     exit(0);
 }
 
-int main() {
+int main(int argc, char **argv) {
     while (1) {
         printf("Choose action:\n");
         for (int i = 0; i < sizeof(menu) / sizeof(menu[0]); i++) {
