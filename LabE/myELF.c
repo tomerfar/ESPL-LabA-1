@@ -150,7 +150,7 @@ const char *get_section_type(uint32_t sh_type) {
 
 void print_section_names(state* s) {
     if (s->fd1 == -1 && s->fd2 == -1) {
-        printf("Error: No ELF files opened. Please use 'Examine ELF File' first.\n");
+        printf("Error: No ELF files opened. Use 'Examine ELF File' first.\n");
         return;
     }
 
@@ -214,7 +214,7 @@ const char *get_section_name(Elf32_Ehdr *header, int index) {
 
 void print_symbols(state* s) {
     if (s->fd1 == -1 && s->fd2 == -1) {
-        printf("No ELF files opened. Please use 'Examine ELF File' first.\n");
+        printf("No ELF files opened. Use 'Examine ELF File' first.\n");
         return;
     }
 
@@ -274,7 +274,7 @@ void print_symbols(state* s) {
 // checks whether we can merge the current loaded files
 void check_files_for_merge(state* s) {
     if (s->fd1 == -1 || s->fd2 == -1) {
-        printf("Two ELF files must be opened for merging.\n");
+        printf("Two ELF files must be open for merging.\n");
         return;
     }
 
@@ -289,7 +289,7 @@ void check_files_for_merge(state* s) {
     for (int i = 0; i < header1->e_shnum; i++) {
         if (section_headers1[i].sh_type == SHT_SYMTAB || section_headers1[i].sh_type == SHT_DYNSYM) {
             if (symtab_header1) {
-                printf("Multiple symbol tables found in the first ELF file. Feature not supported.\n");
+                printf("Multiple symbol tables found in the first ELF file.\n");
                 return;
             }
             symtab_header1 = &section_headers1[i];
@@ -297,7 +297,7 @@ void check_files_for_merge(state* s) {
     }
 
     if (!symtab_header1) {
-        printf("No symbol table found in the first ELF file. Feature not supported.\n");
+        printf("No symbol table found in the first ELF file.\n");
         return;
     }
 
@@ -305,7 +305,7 @@ void check_files_for_merge(state* s) {
     for (int i = 0; i < header2->e_shnum; i++) {
         if (section_headers2[i].sh_type == SHT_SYMTAB || section_headers2[i].sh_type == SHT_DYNSYM) {
             if (symtab_header2) {
-                printf("Multiple symbol tables found in the second ELF file. Feature not supported.\n");
+                printf("Multiple symbol tables found in the second ELF file.\n");
                 return;
             }
             symtab_header2 = &section_headers2[i];
@@ -313,7 +313,7 @@ void check_files_for_merge(state* s) {
     }
 
     if (!symtab_header2) {
-        printf("No symbol table found in the second ELF file. Feature not supported.\n");
+        printf("No symbol table found in the second ELF file.\n");
         return;
     }
 
